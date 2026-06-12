@@ -211,6 +211,63 @@ class HanoiTowerWaypointPlanner:
             )
         )
 
+    def get_legal_transitions(
+        self,
+        state: tuple[int, ...],
+    ) -> list[tuple[tuple[int, ...], HanoiMove]]:
+        stacks = [[] for _ in range(len(self.station_positions))]
+        for disk, station in enumerate(state):
+            stacks[station].append(disk)
+
+        transitions = []
+        for src in range(len(self.station_positions)):
+            if not stacks[src]:
+                continue
+            disk_to_move = stacks[src][-1]
+
+            for dst in range(len(self.station_positions)):
+                if src == dst:
+                    continue
+                if not stacks[dst] or stacks[dst][-1] < disk_to_move:
+                    next_state = list(state)
+                    next_state[disk_to_move] = dst
+                    transitions.append((tuple(next_state), (src, dst)))
+        return transitions
+
+    def solve_hanoi_bfs(
+        self,
+        start_state: tuple[int, ...],
+        target_station: int,
+    ) -> list[HanoiMove]:
+        goal_state = tuple(target_station for _ in range(self.num_disks))
+        start_state = tuple(start_state)
+        if start_state == goal_state:
+            return []
+
+        from collections import deque
+        queue = deque([start_state])
+        parent = {start_state: None}
+        move_taken = {}
+
+        while queue:
+            curr = queue.popleft()
+            if curr == goal_state:
+                break
+
+            for next_state, move in self.get_legal_transitions(curr):
+                if next_state not in parent:
+                    parent[next_state] = curr
+                    move_taken[next_state] = move
+                    queue.append(next_state)
+
+        path = []
+        curr = goal_state
+        while curr in move_taken:
+            path.append(move_taken[curr])
+            curr = parent[curr]
+        path.reverse()
+        return path
+
     def build_task_plan(
         self,
         tower_stations: tuple[int, ...],
@@ -221,36 +278,33 @@ class HanoiTowerWaypointPlanner:
 
         largest_station = tower_stations[0]
         initial_stacks = self.build_stacks_from_tower_stations(tower_stations)
-        collect_moves = self.generate_moves_to_station(tower_stations, largest_station)
-        collect_waypoints = self.build_waypoints_from_moves(
-            collect_moves,
+        
+        # Solve using BFS
+        moves = self.solve_hanoi_bfs(tower_stations, target_station)
+
+        # Partition moves into collect_moves and final_moves to preserve compatibility
+        # disk 0 is the largest disk (tower1)
+        state = list(tower_stations)
+        idx = len(moves)  # Default if disk 0 never moves
+        for i, (src, dst) in enumerate(moves):
+            disks_at_src = [d for d, s in enumerate(state) if s == src]
+            moving_disk = max(disks_at_src)
+            if moving_disk == 0:
+                idx = i
+                break
+            state[moving_disk] = dst
+
+        collect_moves = moves[:idx]
+        final_moves = moves[idx:]
+
+        waypoints = self.build_waypoints_from_moves(
+            moves,
             initial_stacks,
             obstacles=obstacles,
         )
 
-        final_moves: list[HanoiMove] = []
-        final_waypoints: list[HanoiWaypoint] = []
-        if largest_station != target_station:
-            auxiliary = self.get_auxiliary_station(largest_station, target_station)
-            final_moves = self.generate_hanoi_moves(
-                self.num_disks,
-                largest_station,
-                target_station,
-                auxiliary,
-            )
-            collected_stacks = self.build_stacks_from_tower_stations(
-                tuple(largest_station for _ in self.tower_names)
-            )
-            final_waypoints = self.build_waypoints_from_moves(
-                final_moves,
-                collected_stacks,
-                obstacles=obstacles,
-            )
-
         return HanoiTaskPlan(
-            waypoints=self._with_boundary_waypoints(
-                collect_waypoints + final_waypoints
-            ),
+            waypoints=self._with_boundary_waypoints(waypoints),
             collect_move_count=len(collect_moves),
             final_move_count=len(final_moves),
             largest_station=largest_station,
