@@ -63,7 +63,8 @@ RUN --mount=type=cache,target=/var/cache/apt,sharing=private \
     apt-get update && \
     apt-get install -y \
     ros-$ROS_DISTRO-geometry-msgs \
-    ros-$ROS_DISTRO-turtlesim &&\
+    ros-$ROS_DISTRO-turtlesim \
+    ros-$ROS_DISTRO-usb-cam &&\
     rm -rf /var/lib/apt/lists/*
 
 # Install gazebo
@@ -90,6 +91,7 @@ RUN --mount=type=cache,target=/var/cache/apt,sharing=private \
 # Create a non-root user to use the container
 RUN groupadd --gid ${USERGID} ${USERNAME} \
     && useradd --uid ${USERID} --gid ${USERGID} -m ${USERNAME} -s /bin/bash \
+    && usermod -aG video,dialout,audio ${USERNAME} \
     && echo "${USERNAME} ALL=(ALL) NOPASSWD:ALL" >> /etc/sudoers
 
 RUN apt update && DEBIAN_FRONTEND=noninteractive apt install -y --no-install-recommends tzdata
