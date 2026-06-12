@@ -57,7 +57,7 @@ class MoveGroupPythonInterface(Node):
 
         self.GROUP_NAME = "ldsc_arm"
         self.PLANNING_FRAME = "world"
-        self.WAYPOINT_BLEND_RADIUS = 0.0
+        self.WAYPOINT_BLEND_RADIUS = 0.02
         self.JOINT_GOAL_TOLERANCE = 0.005
         self.JOINT_MATCH_TOLERANCE = 0.001
 
