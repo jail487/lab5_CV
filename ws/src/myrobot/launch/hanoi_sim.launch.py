@@ -28,7 +28,7 @@ def generate_launch_description():
         executable='usb_cam_node_exe',
         name='usb_cam',
         output='screen',
-        parameters=[{'video_device': '/dev/video4'}]
+        parameters=[{'video_device': '/dev/video0'}]
     )
 
     # 4. Hanoi Vision Tracking node
